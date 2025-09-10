@@ -36,11 +36,11 @@ class Qwen3Paraphraser:
     
     def create_paraphrase_prompt(self, text: str) -> str:
         """Create a prompt for paraphrasing text in plain language."""
-        prompt = f"""Please rewrite the following text in simple, plain language that anyone can easily understand. Use shorter sentences, common words, and clear explanations. Keep the same meaning but make it much easier to read:
+        prompt = f"""Reescreva o seguinte texto em uma linguagem simples e clara. Use frases mais curtas, palavras comuns e explicações diretas. Mantenha o mesmo significado, mas torne a leitura mais fácil. Retorne só texto simplificado, sem comentários adicionais.
 
-Text to simplify: {text}
+Texto a simplificar: {text}
 
-Please provide only the simplified version without any additional commentary."""
+"""
         return prompt
     
     def generate_paraphrase(self, text: str) -> Tuple[str, str]:

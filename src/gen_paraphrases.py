@@ -15,17 +15,21 @@ class LMStudioClient:
         self.model_name = model_name
         self.session = requests.Session()
         
-    def generate_paraphrase(self, text: str, max_tokens: int = 512, temperature: float = 0.7) -> str:
+    def generate_paraphrase(self, text: str, max_tokens: int = 2048, temperature: float = 0.7) -> str:
         """Generate a paraphrase for the given text"""
         
-        prompt = f"""Please paraphrase the following text while maintaining its original meaning and key information:
+        prompt = f"""Simplifique o texto a seguir, mas mantenha o sentido original. Retorne só o texto simplificado.
 
-Original text: {text}
+Texto original: {text}
 
-Paraphrase:"""
+Texto simplificado: /no_think"""
 
         payload = {
             "messages": [
+                {
+                    "role": "system",
+                    "content": "Você é um assistente simplificador de textos."
+                },
                 {
                     "role": "user",
                     "content": prompt
@@ -33,6 +37,8 @@ Paraphrase:"""
             ],
             "temperature": temperature,
             "max_tokens": max_tokens,
+            "top_p": 0.8,
+            "top_k": 20,
             "stream": False
         }
         
@@ -51,8 +57,8 @@ Paraphrase:"""
             paraphrase = result['choices'][0]['message']['content'].strip()
             
             # Remove "Paraphrase:" prefix if present
-            if paraphrase.startswith("Paraphrase:"):
-                paraphrase = paraphrase[11:].strip()
+            if paraphrase.startswith("<think>\n\n</think>\n"):
+                paraphrase = paraphrase[18:].strip()
                 
             return paraphrase
             
@@ -218,14 +224,14 @@ if __name__ == "__main__":
     # Example: Process a small subset for testing
     test_config = {
         'dataset_name': "eduagarcia/LegalPT_dedup",
-        'dataset_config': "acordaos_tcu",
+        'dataset_config': "iudicium_textum",
         'text_column': "text",  # You may need to adjust this
-        'output_file': "test_paraphrases.parquet",
+        'output_file': "iudicium_textum_paraphrases.parquet",
         'lm_studio_url': "http://localhost:1234",
         'model_name': None,
-        'batch_size': 10,
-        'max_samples': 50,  # Process only 50 samples for testing
-        'delay_between_requests': 0.5
+        'batch_size': 10000,
+        'max_samples': None,  # Process only 50 samples for testing
+        'delay_between_requests': 0.2
     }
     
     print("Starting paraphrase generation...")
