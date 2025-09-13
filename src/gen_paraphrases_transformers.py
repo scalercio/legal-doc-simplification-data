@@ -207,15 +207,14 @@ def main():
     # Initialize the paraphraser
     paraphraser = Qwen3Paraphraser(model_name=args.model)
     
-    # Get texts to process
-    texts = df[args.text_column].tolist()
     
     # Remove any null or empty texts
-    original_length = len(texts)
+    original_length = len(df[args.text_column])
     valid_indices = []
     clean_texts = []
     
-    for idx, text in enumerate(texts):
+    for idx, sample in enumerate(df):
+        text = sample[args.text_column]
         if pd.notna(text) and str(text).strip():
             valid_indices.append(idx)
             clean_texts.append(str(text).strip())
