@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class GGUFParaphraser:
-    def __init__(self, model_path: str, n_ctx: int = 6144, n_threads: int = 8, n_gpu_layers: int = -1):
+    def __init__(self, model_path: str, n_ctx: int = 8192, n_threads: int = 8, n_gpu_layers: int = -1):
         """
         Initialize the GGUF paraphraser using llama-cpp-python.
         
@@ -132,7 +132,7 @@ def main():
     parser.add_argument("--output", "-o", required=True, help="Output parquet file path")
     parser.add_argument("--text_column", "-t", default="text", help="Name of the text column")
     parser.add_argument("--model_path", "-m", required=True, help="Path to GGUF model file")
-    parser.add_argument("--batch_size", "-b", type=int, default=10000, help="Batch size for saving")
+    parser.add_argument("--batch_size", "-b", type=int, default=1000, help="Batch size for saving")
     parser.add_argument("--max_samples", default=None, type=int, help="Maximum number of rows to process (for testing)")
     parser.add_argument("--save_thinking", action="store_true", help="Save the thinking content as well (dummy for GGUF)")
     
