@@ -15,7 +15,7 @@ class LMStudioClient:
         self.model_name = model_name
         self.session = requests.Session()
         
-    def generate_paraphrase(self, text: str, max_tokens: int = 2048, temperature: float = 0.7) -> str:
+    def generate_paraphrase(self, text: str, max_tokens: int = 4096, temperature: float = 0.7) -> str:
         """Generate a paraphrase for the given text"""
         
         prompt = f"""Simplifique o texto a seguir, mas mantenha o sentido original. Retorne só o texto simplificado.
@@ -63,7 +63,7 @@ Texto simplificado: /no_think"""
             return paraphrase
             
         except requests.exceptions.RequestException as e:
-            print(f"Error generating paraphrase: {e}")
+            print(f"Error generating paraphrase: {e.response.text}")
             return None
         except (KeyError, IndexError) as e:
             print(f"Error parsing response: {e}")
@@ -74,6 +74,7 @@ def process_dataset(
     dataset_config: str,
     text_column: str,
     output_file: str,
+    intermediate_file: str = None,
     lm_studio_url: str = "http://localhost:1234",
     model_name: str = None,
     batch_size: int = 100,
@@ -132,53 +133,109 @@ def process_dataset(
     results = []
     processed_count = 0
     
-    # Create progress bar
-    pbar = tqdm(total=len(data), desc="Generating paraphrases")
-    
-    try:
-        for i, sample in enumerate(data):
-            original_text = sample[text_column]
-            
-            # Skip empty texts
-            if not original_text or not original_text.strip():
+    if not intermediate_file:
+        # Create progress bar
+        pbar = tqdm(total=len(data), desc="Generating paraphrases")
+
+        try:
+            for i, sample in enumerate(data):
+                original_text = sample[text_column]
+
+                # Skip empty texts
+                if not original_text or not original_text.strip():
+                    pbar.update(1)
+                    continue
+                
+                # Generate paraphrase
+                paraphrase = client.generate_paraphrase(original_text)
+
+                if paraphrase:
+                    results.append({
+                        'original_text': original_text,
+                        'paraphrase': paraphrase,
+                        'sample_id': i
+                    })
+                    processed_count += 1
+                else:
+                    print(f"Failed to generate paraphrase for sample {i}")
+
+                # Save intermediate results
+                if len(results) % batch_size == 0 and results:
+                    save_intermediate_results(results, output_file, processed_count)
+
+                # Add delay to avoid overwhelming the API
+                time.sleep(delay_between_requests)
+
                 pbar.update(1)
-                continue
-            
-            # Generate paraphrase
-            paraphrase = client.generate_paraphrase(original_text)
-            
-            if paraphrase:
-                results.append({
-                    'original_text': original_text,
-                    'paraphrase': paraphrase,
-                    'sample_id': i
-                })
-                processed_count += 1
+
+        except KeyboardInterrupt:
+            print("\nInterrupted by user. Saving current progress...")
+
+        finally:
+            pbar.close()
+
+            # Save final results
+            if results:
+                save_final_results(results, output_file)
+                print(f"\nProcessing complete! Generated {len(results)} paraphrases.")
+                print(f"Results saved to: {output_file}")
             else:
-                print(f"Failed to generate paraphrase for sample {i}")
-            
-            # Save intermediate results
-            if len(results) % batch_size == 0 and results:
-                save_intermediate_results(results, output_file, processed_count)
-            
-            # Add delay to avoid overwhelming the API
-            time.sleep(delay_between_requests)
-            
-            pbar.update(1)
-            
-    except KeyboardInterrupt:
-        print("\nInterrupted by user. Saving current progress...")
-    
-    finally:
-        pbar.close()
-        
-        # Save final results
-        if results:
-            save_final_results(results, output_file)
-            print(f"\nProcessing complete! Generated {len(results)} paraphrases.")
-            print(f"Results saved to: {output_file}")
-        else:
-            print("No paraphrases were generated.")
+                print("No paraphrases were generated.")
+                
+    else:
+        df = pd.read_parquet(intermediate_file)
+        id_samples = df["sample_id"].tolist()
+        # Create progress bar
+        pbar = tqdm(total=len(data), desc="Generating paraphrases")
+
+        try:
+            for i, sample in enumerate(data):
+                if i in id_samples:
+                    pbar.update(1)
+                    continue
+                    
+                original_text = sample[text_column]
+
+                # Skip empty texts
+                if not original_text or not original_text.strip():
+                    pbar.update(1)
+                    continue
+                
+                # Generate paraphrase
+                paraphrase = client.generate_paraphrase(original_text)
+
+                if paraphrase:
+                    results.append({
+                        'original_text': original_text,
+                        'paraphrase': paraphrase,
+                        'sample_id': i
+                    })
+                    processed_count += 1
+                else:
+                    print(f"Failed to generate paraphrase for sample {i}")
+
+                # Save intermediate results
+                if len(results) % batch_size == 0 and results:
+                    save_intermediate_results(results, output_file, processed_count)
+
+                # Add delay to avoid overwhelming the API
+                time.sleep(delay_between_requests)
+
+                pbar.update(1)
+
+        except KeyboardInterrupt:
+            print("\nInterrupted by user. Saving current progress...")
+
+        finally:
+            pbar.close()
+
+            # Save final results
+            if results:
+                save_final_combined_results(results, output_file, df)
+                print(f"\nProcessing complete! Generated {len(results)} paraphrases.")
+                print(f"Results gathered and saved to: {output_file}")
+            else:
+                print("No paraphrases were generated.")
 
 def save_intermediate_results(results: List[Dict], output_file: str, processed_count: int):
     """Save intermediate results to avoid losing progress"""
@@ -186,6 +243,22 @@ def save_intermediate_results(results: List[Dict], output_file: str, processed_c
     df = pd.DataFrame(results)
     df.to_parquet(intermediate_file, index=False)
     print(f"\nSaved intermediate results: {len(results)} pairs to {intermediate_file}")
+
+def save_final_combined_results(results: List[Dict], output_file: str, df_original):
+    """Save combined results to parquet file"""
+    df = pd.DataFrame(results)
+    df_combined = pd.concat([df_original, df], ignore_index=True).sort_values(by="sample_id")
+    df_combined.to_parquet(output_file, index=False)
+    
+    # Clean up intermediate files
+    directory = os.path.dirname(output_file) or '.'
+    base_name = os.path.basename(output_file).replace('.parquet', '')
+    
+    for file in os.listdir(directory):
+        if file.startswith(f"{base_name}_intermediate_") and file.endswith('.parquet'):
+            os.remove(os.path.join(directory, file))
+            print(f"Cleaned up intermediate file: {file}")
+
 
 def save_final_results(results: List[Dict], output_file: str):
     """Save final results to parquet file"""
@@ -226,7 +299,8 @@ if __name__ == "__main__":
         'dataset_name': "eduagarcia/LegalPT_dedup",
         'dataset_config': "iudicium_textum",
         'text_column': "text",  # You may need to adjust this
-        'output_file': "iudicium_textum_paraphrases.parquet",
+        'output_file': "iudicium_textum_paraphrases_v2.parquet",
+        'intermediate_file': "iudicium_textum_paraphrases.parquet",
         'lm_studio_url': "http://localhost:1234",
         'model_name': None,
         'batch_size': 10000,
