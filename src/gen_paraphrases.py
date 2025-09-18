@@ -63,7 +63,7 @@ Texto simplificado: /no_think"""
             return paraphrase
             
         except requests.exceptions.RequestException as e:
-            print(f"Error generating paraphrase: {e.response.text}")
+            print(f"Error generating paraphrase: {e}")
             return None
         except (KeyError, IndexError) as e:
             print(f"Error parsing response: {e}")
@@ -297,10 +297,10 @@ if __name__ == "__main__":
     # Example: Process a small subset for testing
     test_config = {
         'dataset_name': "eduagarcia/LegalPT_dedup",
-        'dataset_config': "iudicium_textum",
+        'dataset_config': "datastf",
         'text_column': "text",  # You may need to adjust this
-        'output_file': "iudicium_textum_paraphrases_v2.parquet",
-        'intermediate_file': "iudicium_textum_paraphrases.parquet",
+        'output_file': "datastf_paraphrases_v2.parquet",
+        'intermediate_file': "datastf_paraphrases.parquet",
         'lm_studio_url': "http://localhost:1234",
         'model_name': None,
         'batch_size': 10000,

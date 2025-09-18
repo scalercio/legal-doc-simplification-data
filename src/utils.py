@@ -64,6 +64,7 @@ def avaliar_documentos(docs):
 
 # Baixar tokenizer do nltk (rodar uma vez)
 nltk.download("punkt")
+nltk.download('punkt_tab')
 
 def chunk_sentences(text: str, max_sentences: int = 5, overlap: int = 2) -> list[str]:
     """
@@ -97,7 +98,7 @@ def calcular_similaridade_sliding(df: pd.DataFrame,
     
     Retorna uma lista com as similaridades.
     """
-    model = SentenceTransformer("all-mpnet-base-v2")
+    model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
     similaridades = []
     
     for _, row in df.iterrows():
