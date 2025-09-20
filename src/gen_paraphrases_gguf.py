@@ -135,6 +135,7 @@ def main():
     parser.add_argument("--batch_size", "-b", type=int, default=1000, help="Batch size for saving")
     parser.add_argument("--max_samples", default=None, type=int, help="Maximum number of rows to process (for testing)")
     parser.add_argument("--save_thinking", action="store_true", help="Save the thinking content as well (dummy for GGUF)")
+    parser.add_argument("--initial_index", "-i", type=int, default=0, help="starting index")
     
     args = parser.parse_args()
 
@@ -142,9 +143,15 @@ def main():
     ds = load_dataset(args.dataset, args.corpus)
     df = ds["train"] if "train" in ds else ds[list(ds.keys())[0]]
 
-    if args.max_samples and len(df) > args.max_samples:
+    if args.max_samples and len(df) > args.max_samples and not args.initial_index:
         df = df.select(range(args.max_samples))
         print(f"Limited to {args.max_samples} samples")
+    elif args.max_samples and (len(df) - args.initial_index > args.max_samples) and args.initial_index:
+        df = df.select(range(args.initial_index, args.initial_index + args.max_samples))
+        print(f"Starting from index {args.initial_index} and limited to {args.max_samples} samples")
+    elif args.initial_index:
+        df = df.select(range(args.initial_index, len(df)))
+        print(f"Starting from index {args.initial_index}")
 
     # Clean texts
     clean_texts = [str(x).strip() for x in df[args.text_column] if pd.notna(x) and str(x).strip()]
