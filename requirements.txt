@@ -1,0 +1,9 @@
+huggingface_hub
+pandas
+datasets
+transformers
+accelerate
+nltk
+sentence_transformers
+pyarrow
+llama-cpp-python

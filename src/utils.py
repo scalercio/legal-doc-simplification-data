@@ -122,3 +122,26 @@ def calcular_similaridade_sliding(df: pd.DataFrame,
         similaridades.append(sim)
     
     return similaridades
+
+def calcular_delta_flesch(df: pd.DataFrame) -> list[float]:
+    """
+    Calcula a diferença entre o score flesch entre documentos longos
+    (colunas 'original_text' e 'paraphrase').
+    
+    Retorna uma lista com as diferenças.
+    """
+    
+    delta_scores = []
+    
+    for _, row in df.iterrows():
+        doc1 = str(row["original_text"])
+        doc2 = str(row["paraphrase"])
+        
+        # Quebrar documentos em chunks com janela deslizante
+        flesch1 = flesch_portugues(doc1)
+        flesch2 = flesch_portugues(doc2)
+        
+        # delta_scores
+        delta_scores.append(flesch2-flesch1)
+    
+    return delta_scores
