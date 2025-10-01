@@ -147,7 +147,7 @@ def filtrar_por_similaridade(df: pd.DataFrame) -> pd.DataFrame:
     df["sim"] = sim
 
     # Retorna apenas linhas com sim > 0.75
-    return df[df["sim"] > 0.75].reset_index(drop=True)
+    return df[df["sim"] > 0.8].reset_index(drop=True)
 
 def calcular_delta_flesch(df: pd.DataFrame) -> list[float]:
     """
@@ -201,7 +201,6 @@ def filtrar_por_flesch_diff(df: pd.DataFrame, flesch_portugues=flesch_portugues)
     return df[df["flesch_diff"] > 0].reset_index(drop=True)
 
 import spacy
-import re
 
 # Load Portuguese spaCy model
 # Carregar spaCy apenas com tokenizer + sentencizer (sem POS, NER, parser, etc.)
@@ -250,7 +249,60 @@ def legal_sentence_split(text):
 
     return [f.strip() for f in fixed_sentences if f.strip()]
 
+import unicodedata
 
+def diversidade_lexical(texto: str) -> int:
+    # 1. Colocar tudo em minúsculas
+    texto = texto.lower()
+    
+    # 2. Remover acentos
+    texto = ''.join(
+        c for c in unicodedata.normalize('NFD', texto)
+        if unicodedata.category(c) != 'Mn'
+    )
+    
+    # 3. Manter apenas letras e espaços (remove pontuação e números)
+    # como já removemos acentos, basta manter a-z
+    texto = re.sub(r'[^a-z\s]', ' ', texto)
+    texto = re.sub(r'\s+', ' ', texto).strip()
+    
+    # 4. Separar em palavras
+    palavras = texto.split()
+    
+    if not palavras:
+        return 0#.0
+    
+    # 5. Calcular razão (palavras distintas / total de palavras)
+    distintas = set(palavras)
+    return len(distintas) #/ len(palavras)
+
+def filtrar_por_diversidade(df: pd.DataFrame, diversidade_lexical=diversidade_lexical) -> pd.DataFrame:
+    """
+    Filtra as linhas de um DataFrame em que a diferença da métrica Flesch 
+    entre 'original_text' e 'paraphrase' seja maior que 15.
+    
+    Parâmetros
+    ----------
+    df : pd.DataFrame
+        DataFrame contendo as colunas 'original_text' e 'paraphrase'.
+    flesch_func : callable
+        Função que recebe um texto (str) e retorna o valor da métrica Flesch (float).
+    
+    Retorna
+    -------
+    pd.DataFrame
+        Subconjunto do DataFrame original com linhas cuja diferença > 15.
+    """
+    # Calcula as métricas Flesch
+    df = df.copy()
+    df["diversidade_original"] = df["original_text"].apply(diversidade_lexical)
+    df["diversidade_paraphrase"] = df["paraphrase"].apply(diversidade_lexical)
+
+    # Calcula diferença absoluta
+    df["diversidade_diff"] = df["diversidade_original"] - df["diversidade_paraphrase"]
+
+    # Retorna apenas linhas com diferença > 15
+    return df[df["diversidade_diff"] > 0].reset_index(drop=True)
 # ------------------------------
 # Example usage
 # ------------------------------
