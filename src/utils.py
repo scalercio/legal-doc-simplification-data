@@ -303,6 +303,52 @@ def filtrar_por_diversidade(df: pd.DataFrame, diversidade_lexical=diversidade_le
 
     # Retorna apenas linhas com diferença > 15
     return df[df["diversidade_diff"] > 0].reset_index(drop=True)
+
+def load_parquets(lista_arquivos):
+    """
+    Lê vários arquivos Parquet, concatena e retorna um único DataFrame
+    contendo apenas as colunas 'original_text' e 'paraphrase'.
+    
+    Parâmetros
+    ----------
+    lista_arquivos : list of str
+        Lista com os caminhos dos arquivos .parquet
+    
+    Retorno
+    -------
+    pd.DataFrame
+        DataFrame concatenado com as colunas 'original_text' e 'paraphrase'
+    """
+    dataframes = []
+    for arquivo in lista_arquivos:
+        df = pd.read_parquet(arquivo)
+
+        # Mantém apenas colunas desejadas
+        if "simple_text" in df.columns:
+            df = df.rename(columns={"simple_text": "paraphrase"})
+        dataframes.append(df[["original_text", "paraphrase"]])
+
+    # Concatena tudo
+    df_final = pd.concat(dataframes, ignore_index=True)
+    return df_final
+
+def filter_errors(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Remove as linhas do DataFrame em que a coluna 'paraphrase'
+    começa com 'Error: Could not paraphrase -'.
+
+    Parâmetros
+    ----------
+    df : pd.DataFrame
+        DataFrame contendo a coluna 'paraphrase'.
+
+    Retorno
+    -------
+    pd.DataFrame
+        DataFrame filtrado, sem as linhas de erro.
+    """
+    mask = ~df["paraphrase"].str.startswith("Error: Could not paraphrase -", na=False)
+    return df[mask].reset_index(drop=True)
 # ------------------------------
 # Example usage
 # ------------------------------
