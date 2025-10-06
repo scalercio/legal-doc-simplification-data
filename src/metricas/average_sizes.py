@@ -26,7 +26,7 @@ for arquivo in arquivos:
 
     # Verifica se as colunas necessárias existem
     if not all(col in df.columns for col in ["original_text", "paraphrase"]):
-        print(f" ⚠️ Pulando {os.path.basename(arquivo)} — colunas não encontradas.")
+        print(f" Pulando {os.path.basename(arquivo)} — colunas não encontradas.")
         continue
 
     # Calcula métricas para cada documento
@@ -71,6 +71,6 @@ print("\n Resultado combinado de todos os datasets:")
 print(final.round(2))
 
 
-saida = "contagem/tamanhos_medio_datasets/todos_datasets.csv"
+saida = "contagem/tamanho_medio_datasets/todos_datasets.csv"
 final.to_csv(saida, index=False)
 print(f"\n Arquivo salvo: {saida}")
