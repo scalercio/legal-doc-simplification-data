@@ -13,13 +13,14 @@ from sentence_transformers import SentenceTransformer, util
 # ======================
 # 1. Configurar W&B
 # ======================
-#wandb.init(project="qwen-finetune", name="qwen2.5-7b-lora-masked")
+wandb.init(project="qwen-finetune", name="qwen2.5-7b-lora-v1")
 
 # ======================
 # 2. Carregar datasets
 # ======================
-train_df = pd.read_parquet("train_random.parquet")
-val_df = pd.read_parquet("val_random.parquet")
+train_df = pd.read_parquet("splits_output/train_random.parquet")
+#train_df = train_df.iloc[:10000]
+val_df = pd.read_parquet("splits_output/val_random.parquet")
 #test_df = pd.read_parquet("acordaos_tcu_v4_intermediate_1000.parquet")
 
 train_dataset = Dataset.from_pandas(train_df)
@@ -41,6 +42,9 @@ model = AutoModelForCausalLM.from_pretrained(
     load_in_4bit=True,
     torch_dtype=torch.float16,
 )
+
+#model.gradient_checkpointing_enable()
+#model.config.use_cache = False  # Necessário com gradient checkpointing
 
 # ======================
 # 4. Configuração do LoRA
@@ -235,23 +239,33 @@ training_args = TrainingArguments(
     per_device_train_batch_size=2,
     per_device_eval_batch_size=4,
     gradient_accumulation_steps=8,
-    num_train_epochs=3,
+    num_train_epochs=2,
     learning_rate=2e-4,
     fp16=True,
     logging_dir="./logs",
     logging_steps=10,
     save_strategy="steps",
-    save_steps=600,
+    save_steps=4000,
     eval_strategy="steps",
-    eval_steps=200,
-    #report_to="wandb",
+    eval_steps=4000,    
+    eval_accumulation_steps=4,
+    prediction_loss_only=True,
+    report_to="wandb",
     optim="paged_adamw_8bit",
     load_best_model_at_end=True,
     metric_for_best_model="eval_loss",  # 👈 EXPLÍCITO: salva baseado no loss
     greater_is_better=False,  # 👈 Menor loss é melhor
     save_total_limit=2,  # 👈 Mantém apenas os 2 melhores checkpoints
     warmup_steps=100,
-    # 👇 Remove exemplos muito longos
+    lr_scheduler_type = "cosine",
+    # OTIMIZAÇÕES DE MEMÓRIA
+    #gradient_checkpointing=True,  # Ativa gradient checkpointing
+    #gradient_checkpointing_kwargs={"use_reentrant": False},
+    # Configurações para múltiplas GPUs
+    #ddp_find_unused_parameters=False,  # Otimização DDP
+    dataloader_num_workers=4,  # Paraleliza carregamento de dados
+    #dataloader_pin_memory=True,  # Acelera transferência GPU
+    # Remove exemplos muito longos
     remove_unused_columns=False,
 )
 
