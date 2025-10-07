@@ -100,7 +100,7 @@ def collate_fn(batch):
         "attention_mask": torch.tensor(attention_mask, dtype=torch.long),
         "target_texts": target_texts  # 👈 NOVO
     }
-test_loader = DataLoader(test_dataset, batch_size=24, collate_fn=collate_fn)
+test_loader = DataLoader(test_dataset, batch_size=16, collate_fn=collate_fn)
 # ======================
 # 4. Métricas
 # ======================
@@ -181,23 +181,67 @@ with torch.inference_mode():
 #perplexity = np.exp(avg_loss) if avg_loss < 20 else float("inf")
 
 # D-SARI
-sari_scores = []
-for src, pred, ref in zip(test_df["original_text"], predictions, references):
-    try:
-        sari_score = sari_metric.compute(sources=[src], predictions=[pred], references=[[ref]])
-        sari_scores.append(sari_score["sari"])
-    except:
-        sari_scores.append(0.0)
-d_sari = np.mean(sari_scores)
+print("  - Calculando D-SARI...")
+sari_metric = evaluate.load("sari")
+try:
+    # Calcula SARI de uma vez para todo o dataset
+    sari_result = sari_metric.compute(
+        sources=test_df["original_text"],
+        predictions=predictions,
+        references=[[ref] for ref in references]
+    )
+    d_sari = sari_result["sari"]
+except Exception as e:
+    print(f"⚠️  Erro no SARI, calculando item por item: {e}")
+    sari_scores = []
+    for src, pred, ref in tqdm(zip(test_df["original_text"], predictions, references), total=len(test_df["original_text"]), desc="SARI"):
+        try:
+            score = sari_metric.compute(sources=[src], predictions=[pred], references=[[ref]])
+            sari_scores.append(score["sari"])
+        except:
+            sari_scores.append(0.0)
+    d_sari = np.mean(sari_scores)
+
+print(f"  ✓ D-SARI: {d_sari:.2f}")
+
+#sari_scores = []
+#for src, pred, ref in zip(test_df["original_text"], predictions, references):
+#    try:
+#        sari_score = sari_metric.compute(sources=[src], predictions=[pred], references=[[ref]])
+#        sari_scores.append(sari_score["sari"])
+#    except:
+#        sari_scores.append(0.0)
+#d_sari = np.mean(sari_scores)
 
 # Similaridade semântica (entrada vs saída)
-sims = []
-for src, pred in zip(test_df["original_text"], predictions):
-    emb_src = embedder.encode(src, convert_to_tensor=True)
-    emb_pred = embedder.encode(pred, convert_to_tensor=True)
-    sim = util.pytorch_cos_sim(emb_src, emb_pred).item()
-    sims.append(sim)
-semantic_similarity = np.mean(sims)
+EMBED_BATCH_SIZE = 32
+src_embeddings = embedder.encode(
+    test_df["original_text"], 
+    batch_size=EMBED_BATCH_SIZE,
+    show_progress_bar=True,
+    convert_to_tensor=True
+)
+pred_embeddings = embedder.encode(
+    predictions,
+    batch_size=EMBED_BATCH_SIZE,
+    show_progress_bar=True,
+    convert_to_tensor=True
+)
+
+# Calcula similaridade em batch
+sims = util.pytorch_cos_sim(src_embeddings, pred_embeddings)
+# Pega a diagonal (similaridade entre src[i] e pred[i])
+semantic_similarity = torch.diagonal(sims).mean().item()
+
+print(f"  ✓ Similaridade Semântica: {semantic_similarity:.4f}")
+
+#sims = []
+#for src, pred in zip(test_df["original_text"], predictions):
+#    emb_src = embedder.encode(src, convert_to_tensor=True)
+#    emb_pred = embedder.encode(pred, convert_to_tensor=True)
+#    sim = util.pytorch_cos_sim(emb_src, emb_pred).item()
+#    sims.append(sim)
+#semantic_similarity = np.mean(sims)
 
 # ======================
 # 7. Salvar métricas finais
