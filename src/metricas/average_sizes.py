@@ -36,6 +36,12 @@ for arquivo in arquivos:
     df["palavras_destino"] = df["paraphrase"].apply(contar_palavras)
     df["caracteres_origem"] = df["original_text"].apply(contar_caracteres)
     df["caracteres_destino"] = df["paraphrase"].apply(contar_caracteres)
+    print(df["sentencas_origem"])
+    print(df["sentencas_destino"])
+    print(df["palavras_origem"])
+    print(df["palavras_destino"])
+    print(df["caracteres_origem"])
+    print(df["caracteres_destino"])
 
     # Calcula médias e desvios padrão
     medias = {
