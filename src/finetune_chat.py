@@ -1,3 +1,6 @@
+import os
+# FIX: Reduz fragmentação de memória (sugestão do próprio PyTorch)
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import torch
 import pandas as pd
 from datasets import Dataset
@@ -11,6 +14,7 @@ from math import exp
 from sentence_transformers import SentenceTransformer, util
 from tqdm import tqdm
 import math
+
 
 # ======================
 # 1. Configurar W&B
@@ -324,13 +328,22 @@ def custom_evaluate(trainer_self, ignore_keys=None, metric_key_prefix="eval", **
     
     # 🔥 CRÍTICO: Salva e limpa estado do modelo
     training_mode = trainer_self.model.training
+    grad_checkpointing_enabled = (
+        hasattr(trainer_self.model, 'is_gradient_checkpointing') 
+        and trainer_self.model.is_gradient_checkpointing
+    )
+    use_cache_original = trainer_self.model.config.use_cache
     
     trainer_self.model.eval()
-    torch.cuda.empty_cache()
     
     # 🔥 ADICIONA: Limpa cache interno do modelo (importante para LoRA)
     if hasattr(trainer_self.model, 'gradient_checkpointing_disable'):
         trainer_self.model.gradient_checkpointing_disable()
+    
+    # Habilita cache para inferência (mais rápido)
+    trainer_self.model.config.use_cache = True
+    
+    torch.cuda.empty_cache()
     
     # Detecta precisão
     if trainer_self.args.bf16:
@@ -345,7 +358,7 @@ def custom_evaluate(trainer_self, ignore_keys=None, metric_key_prefix="eval", **
     
     print(f"🧠 Avaliando em modo: {dtype}")
     
-    # 🔥 MELHORA: Usa o mesmo batch_size do código que funciona
+    # MELHORA: Usa o mesmo batch_size do código que funciona
     loader = DataLoader(
         trainer_self.eval_dataset,
         batch_size=trainer_self.args.per_device_eval_batch_size,
@@ -388,9 +401,21 @@ def custom_evaluate(trainer_self, ignore_keys=None, metric_key_prefix="eval", **
                     print(f"❌ Erro no batch {i}: {e}")
                     continue
     
+    print("\n Restaurando estado do modelo para treino...")
     # 🔥 ADICIONA: Restaura estado original
     if training_mode:
         trainer_self.model.train()
+        
+     # RESTAURA GRADIENT CHECKPOINTING (era isso que faltava!)
+    if grad_checkpointing_enabled:
+        print("✅ Reativando gradient checkpointing...")
+        trainer_self.model.gradient_checkpointing_enable()
+    
+    # RESTAURA use_cache (OBRIGATÓRIO com gradient checkpointing)
+    trainer_self.model.config.use_cache = use_cache_original
+    
+    # Limpa cache antes de retomar treino
+    torch.cuda.empty_cache()
     
     # Calcula métricas
     if len(losses) == 0:
@@ -493,8 +518,9 @@ def custom_evaluate(trainer_self, ignore_keys=None, metric_key_prefix="eval", **
 training_args = TrainingArguments(
     output_dir="./qwen-finetuned-chat2",
     per_device_train_batch_size=1,
-    per_device_eval_batch_size=1,
-    gradient_accumulation_steps=16,
+    per_device_eval_batch_size=2,
+    gradient_accumulation_steps=24,
+    max_grad_norm=0.5,
     num_train_epochs=2,
     learning_rate=2e-4,
     fp16=False,
@@ -504,7 +530,7 @@ training_args = TrainingArguments(
     logging_dir="./logs",
     logging_steps=20,
     save_strategy="steps",
-    save_steps=4000,
+    save_steps=2000,
     eval_strategy="steps",
     eval_steps=2000,    
     eval_accumulation_steps=2,
@@ -514,7 +540,7 @@ training_args = TrainingArguments(
     load_best_model_at_end=True,
     metric_for_best_model="eval_loss_safe",  # 👈 EXPLÍCITO: salva baseado no loss
     greater_is_better=False,  # 👈 Menor loss é melhor
-    save_total_limit=2,  # 👈 Mantém apenas os 2 melhores checkpoints
+    save_total_limit=3,  # 👈 Mantém apenas os 2 melhores checkpoints
     warmup_steps=100,
     lr_scheduler_type = "cosine",
     # OTIMIZAÇÕES DE MEMÓRIA
