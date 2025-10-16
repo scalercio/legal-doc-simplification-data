@@ -29,8 +29,7 @@ for arquivo in arquivos:
 
     # Calcula compression ratio
     ratios = df.apply(
-        lambda row: contar_caracteres(row["paraphrase"]) / contar_caracteres(row["original_text"])
-        if contar_caracteres(row["original_text"]) > 0 else 0,
+        lambda row: contar_caracteres(row["paraphrase"]) / contar_caracteres(row["original_text"]),
         axis=1
     )
 
@@ -45,18 +44,38 @@ limites = np.arange(0, 1.5 + 0.1, 0.1)
 print(f"Número de faixas: {len(limites)-1}")
 
 plt.figure(figsize=(12, 7))
-plt.hist(todos_ratios, bins=limites, color='skyblue', edgecolor='black', alpha=0.6, density=True)
-todos_ratios.plot(kind='kde', color='black')  # KDE em preto
+
+# Cria o histograma de densidade
+counts, bins, patches = plt.hist(
+    todos_ratios, bins=limites, color='skyblue', edgecolor='black',
+    alpha=0.6, density=True, label='Density'
+)
+
+# Adiciona KDE
+todos_ratios.plot(kind='kde', color='black', label='KDE')
 
 plt.xlim(0, 1.5)
-plt.xticks(limites)
-
-plt.xlabel("Compression Ratio")
-plt.ylabel("Density")
-plt.title("Distribuição de compression ratios — Todos os arquivos combinados")
+plt.xticks(limites, fontsize=14)
+plt.yticks(fontsize=14)
+plt.xlabel("Compression Ratio", fontsize=16)
+plt.ylabel("Density", fontsize=16)
+plt.title("LeDocS-PT", fontsize=18)
 plt.grid(True)
 
-nome_figura = os.path.join(saida, "compression_ratio_combined_all_files.png")
+# Segundo eixo y: relative frequency
+ax2 = plt.gca().twinx()
+rel_freq = counts * np.diff(bins)  # counts * largura da bin
+ax2.set_ylim(0, rel_freq.max() * 1.1)
+ax2.set_ylabel("Relative Frequency", fontsize=16)
+ax2.tick_params(axis='y', labelsize=14)
+plt.grid(True, axis='x')   # só linhas verticais
+plt.grid(False, axis='y')  #
+
+# Legenda
+plt.legend(fontsize=14)
+
+# Salva figura
+nome_figura = os.path.join(saida, "compression_ratio_3_combined_all_files.png")
 plt.savefig(nome_figura, dpi=300, bbox_inches='tight')
 plt.close()
 print(f"Gráfico combinado de todos os arquivos salvo em {nome_figura}")
