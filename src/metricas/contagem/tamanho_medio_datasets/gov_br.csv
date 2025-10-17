@@ -1,0 +1,3 @@
+dataset,media_sentencas_origem,desvio_sentencas_origem,media_sentencas_destino,desvio_sentencas_destino,media_palavras_origem,desvio_palavras_origem,media_palavras_destino,desvio_palavras_destino,media_caracteres_origem,desvio_caracteres_origem,media_caracteres_destino,desvio_caracteres_destino,numero_documentos
+gov_lang_br.parquet,1.22,0.51,1.1,0.38,33.4,26.29,19.35,11.43,181.42,145.8,104.19,60.35,1703
+TODOS_COMBfzINADOS,1.22,0.51,1.1,0.38,33.4,26.29,19.35,11.43,181.42,145.76,104.19,60.34,1703

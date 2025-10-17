@@ -1,42 +1,95 @@
 import pandas as pd
+import glob
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+import matplotlib.patches as mpatches
 
-# === 1️⃣ Carregar o CSV original ===
-df = pd.read_csv("/home/camila/legal-doc-simplification-data/src/metricas/contagem/soma_metrica_datasets/individuais.csv")
+pasta = "/home/camila/legal-doc-simplification-data/datasets"
+arquivos = glob.glob(os.path.join(pasta, "*.parquet.final"))
 
-# === 2️⃣ Calcular as médias por dataset ===
-df["flesch_original_medio"] = df["total_flesch_original"] / df["numero_documentos"]
-df["flesch_paraphrase_medio"] = df["total_flesch_paraphrase"] / df["numero_documentos"]
-df["flesch_diff_medio"] = df["flesch_paraphrase_medio"] - df["flesch_original_medio"]
+if not arquivos:
+    raise FileNotFoundError(f"Nenhum arquivo .parquet.final encontrado em {pasta}")
 
-# === 3️⃣ Criar dataframe de resumo por dataset (sem std) ===
-resumo = df[["dataset", "flesch_original_medio", "flesch_paraphrase_medio", "flesch_diff_medio"]].copy()
+saida = "contagem/oficiais"
+os.makedirs(saida, exist_ok=True)
 
-# === 4️⃣ Calcular totais gerais ===
-flesch_original_total = df["total_flesch_original"].sum() / df["numero_documentos"].sum()
-flesch_paraphrase_total = df["total_flesch_paraphrase"].sum() / df["numero_documentos"].sum()
-flesch_diff_total = flesch_paraphrase_total - flesch_original_total
-
-# === 5️⃣ Calcular desvios padrão globais (entre datasets) ===
-flesch_original_std = df["flesch_original_medio"].std()
-flesch_paraphrase_std = df["flesch_paraphrase_medio"].std()
-flesch_diff_std = df["flesch_diff_medio"].std()
-
-# Adiciona linha total com médias e desvios
-resumo_total = pd.DataFrame({
-    "dataset": ["__TOTAL__"],
-    "flesch_original_medio": [flesch_original_total],
-    "flesch_paraphrase_medio": [flesch_paraphrase_total],
-    "flesch_diff_medio": [flesch_diff_total],
-    "flesch_original_std": [flesch_original_std],
-    "flesch_paraphrase_std": [flesch_paraphrase_std],
-    "flesch_diff_std": [flesch_diff_std]
+# Configurações de fonte e estilo (antes de plotar)
+plt.rcParams.update({
+    'font.size': 18,         # tamanho base
+    'axes.titlesize': 24,    # título do gráfico
+    'axes.labelsize': 20,    # rótulos dos eixos
+    'xtick.labelsize': 16,   # valores do eixo x
+    'ytick.labelsize': 16,   # valores do eixo y
+    'legend.fontsize': 16,   # legenda
+    'figure.titlesize': 24,  # título da figura
 })
 
-# === 6️⃣ Junta tudo ===
-resumo_final = pd.concat([resumo, resumo_total], ignore_index=True)
+# Lista para armazenar todos os ratios
+todos_ratios = []
 
-# === 7️⃣ Salvar resultado ===
-resumo_final.to_csv("flesch_resumo.csv", index=False)
+for arquivo in arquivos:
+    nome = os.path.basename(arquivo)
+    print(f"Lendo {nome}...")
 
-print("Arquivo 'flesch_resumo.csv' criado com sucesso!")
-print(resumo_final)
+    df = pd.read_parquet(arquivo)
+
+    if not all(col in df.columns for col in ["original_text", "paraphrase"]):
+        print(f" Pulando {nome} — colunas não encontradas.")
+        continue
+
+    # Calcula compression ratio
+    ratios = df.apply(
+        lambda row: (row["flesch_diff"]),
+        axis=1
+    )
+    print(ratios)
+    print(max(ratios))
+    print(min(ratios))
+    print(ratios.mean())
+
+    todos_ratios.extend(ratios.tolist())  # adiciona ao dataset único
+
+# Converte para Series do pandas
+todos_ratios = pd.Series(todos_ratios)
+print(f"Total de ratios no dataset combinado: {len(todos_ratios)}")
+
+# Limitar o gráfico a 1.5 e criar faixas de 0.1
+limites = np.arange(0, 60 + 5, 5)
+print(f"Número de faixas: {len(limites)-1}")
+
+plt.figure(figsize=(13, 8))
+
+# Cria o histograma de densidade sem label
+counts, bins, patches = plt.hist(
+    todos_ratios, bins=limites, color='skyblue', edgecolor='black',
+    alpha=0.6, density=True  # <- removido label
+)
+
+# Adiciona KDE com label
+
+todos_ratios.plot(kind='kde', color='black', label='KDE')
+
+plt.xlim(0, 50)
+plt.xticks(limites)
+plt.xlabel("Flesch Index")
+plt.ylabel("Density")
+plt.title("LegalSim-PT")
+
+# Segundo eixo y: relative frequency
+ax2 = plt.gca().twinx()
+rel_freq = counts * np.diff(bins)
+ax2.set_ylim(0, rel_freq.max() * 1.1)
+ax2.set_ylabel("Relative Frequency")
+
+ax2.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+ax2.spines['bottom'].set_visible(False)
+ax2.spines['top'].set_visible(False)
+ax2.grid(False)
+
+# Legenda apenas para KDE
+nome_figura = os.path.join(saida, "delta_flesch.png")
+plt.savefig(nome_figura, dpi=300, bbox_inches='tight')
+plt.close()
+print(f"Gráfico combinado de todos os arquivos salvo em {nome_figura}")

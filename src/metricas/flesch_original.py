@@ -3,7 +3,8 @@ import glob
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from src.metricas.utils import *
+import seaborn as sns
+import matplotlib.patches as mpatches
 
 pasta = "/home/camila/legal-doc-simplification-data/datasets"
 arquivos = glob.glob(os.path.join(pasta, "*.parquet.final"))
@@ -11,8 +12,19 @@ arquivos = glob.glob(os.path.join(pasta, "*.parquet.final"))
 if not arquivos:
     raise FileNotFoundError(f"Nenhum arquivo .parquet.final encontrado em {pasta}")
 
-saida = "contagem/compression_rate"
+saida = "contagem/oficiais"
 os.makedirs(saida, exist_ok=True)
+
+# Configurações de fonte e estilo (antes de plotar)
+plt.rcParams.update({
+    'font.size': 18,         # tamanho base
+    'axes.titlesize': 24,    # título do gráfico
+    'axes.labelsize': 20,    # rótulos dos eixos
+    'xtick.labelsize': 16,   # valores do eixo x
+    'ytick.labelsize': 16,   # valores do eixo y
+    'legend.fontsize': 16,   # legenda
+    'figure.titlesize': 24,  # título da figura
+})
 
 # Lista para armazenar todos os ratios
 todos_ratios = []
@@ -29,9 +41,13 @@ for arquivo in arquivos:
 
     # Calcula compression ratio
     ratios = df.apply(
-        lambda row: contar_caracteres(row["paraphrase"]) / contar_caracteres(row["original_text"]),
+        lambda row: (row["flesch_original"]),
         axis=1
     )
+    print(ratios)
+    print(max(ratios))
+    print(min(ratios))
+    print(ratios.mean())
 
     todos_ratios.extend(ratios.tolist())  # adiciona ao dataset único
 
@@ -40,42 +56,40 @@ todos_ratios = pd.Series(todos_ratios)
 print(f"Total de ratios no dataset combinado: {len(todos_ratios)}")
 
 # Limitar o gráfico a 1.5 e criar faixas de 0.1
-limites = np.arange(0, 1.5 + 0.1, 0.1)
+limites = np.arange(-30, 100 + 5, 5)
 print(f"Número de faixas: {len(limites)-1}")
 
-plt.figure(figsize=(12, 7))
+plt.figure(figsize=(13, 8))
 
-# Cria o histograma de densidade
+# Cria o histograma de densidade sem label
 counts, bins, patches = plt.hist(
     todos_ratios, bins=limites, color='skyblue', edgecolor='black',
-    alpha=0.6, density=True, label='Density'
+    alpha=0.6, density=True  # <- removido label
 )
 
-# Adiciona KDE
+# Adiciona KDE com label
+
 todos_ratios.plot(kind='kde', color='black', label='KDE')
 
-plt.xlim(0, 1.5)
-plt.xticks(limites, fontsize=14)
-plt.yticks(fontsize=14)
-plt.xlabel("Compression Ratio", fontsize=16)
-plt.ylabel("Density", fontsize=16)
-plt.title("LeDocS-PT", fontsize=18)
-plt.grid(True)
+plt.xlim(0, 50)
+plt.xticks(limites)
+plt.xlabel("Flesch Index" )
+plt.ylabel("Density")
+plt.title("LegalSim-PT Original Documents")
 
 # Segundo eixo y: relative frequency
 ax2 = plt.gca().twinx()
-rel_freq = counts * np.diff(bins)  # counts * largura da bin
+rel_freq = counts * np.diff(bins)
 ax2.set_ylim(0, rel_freq.max() * 1.1)
-ax2.set_ylabel("Relative Frequency", fontsize=16)
-ax2.tick_params(axis='y', labelsize=14)
-plt.grid(True, axis='x')   # só linhas verticais
-plt.grid(False, axis='y')  #
+ax2.set_ylabel("Relative Frequency")
 
-# Legenda
-plt.legend(fontsize=14)
+ax2.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+ax2.spines['bottom'].set_visible(False)
+ax2.spines['top'].set_visible(False)
+ax2.grid(False)
 
-# Salva figura
-nome_figura = os.path.join(saida, "compression_ratio_3_combined_all_files.png")
+# Legenda apenas para KDE
+nome_figura = os.path.join(saida, "original_flesch.png")
 plt.savefig(nome_figura, dpi=300, bbox_inches='tight')
 plt.close()
 print(f"Gráfico combinado de todos os arquivos salvo em {nome_figura}")

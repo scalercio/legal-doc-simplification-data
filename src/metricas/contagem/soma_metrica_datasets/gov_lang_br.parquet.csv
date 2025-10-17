@@ -1,0 +1,2 @@
+dataset,total_sentencas_origem,total_sentencas_destino,total_palavras_origem,total_palavras_destino,total_caracteres_origem,total_caracteres_destino,numero_documentos
+gov_lang_br.parquet,2070,1881,56877,32947,308961,177437,1703

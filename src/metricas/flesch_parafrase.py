@@ -3,7 +3,8 @@ import glob
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from src.metricas.utils import *
+import seaborn as sns
+import matplotlib.patches as mpatches
 
 pasta = "/home/camila/legal-doc-simplification-data/datasets"
 arquivos = glob.glob(os.path.join(pasta, "*.parquet.final"))
@@ -40,10 +41,13 @@ for arquivo in arquivos:
 
     # Calcula compression ratio
     ratios = df.apply(
-        lambda row: contar_caracteres(row["paraphrase"]) / contar_caracteres(row["original_text"]),
+        lambda row: (row["flesch_paraphrase"]),
         axis=1
     )
     print(ratios)
+    print(max(ratios))
+    print(min(ratios))
+    print(ratios.mean())
 
     todos_ratios.extend(ratios.tolist())  # adiciona ao dataset único
 
@@ -52,7 +56,7 @@ todos_ratios = pd.Series(todos_ratios)
 print(f"Total de ratios no dataset combinado: {len(todos_ratios)}")
 
 # Limitar o gráfico a 1.5 e criar faixas de 0.1
-limites = np.arange(0, 1.5 + 0.1, 0.1)
+limites = np.arange(-10, 105 + 5, 5)
 print(f"Número de faixas: {len(limites)-1}")
 
 plt.figure(figsize=(13, 8))
@@ -64,13 +68,14 @@ counts, bins, patches = plt.hist(
 )
 
 # Adiciona KDE com label
+
 todos_ratios.plot(kind='kde', color='black', label='KDE')
 
-plt.xlim(0, 1.5)
+plt.xlim(0, 50)
 plt.xticks(limites)
-plt.xlabel("Compression Ratio")
+plt.xlabel("Flesch Index" )
 plt.ylabel("Density")
-plt.title("LegalSim-PT")
+plt.title("LegalSim-PT Simplified Documents")
 
 # Segundo eixo y: relative frequency
 ax2 = plt.gca().twinx()
@@ -83,7 +88,8 @@ ax2.spines['bottom'].set_visible(False)
 ax2.spines['top'].set_visible(False)
 ax2.grid(False)
 
-nome_figura = os.path.join(saida, "compression_rate.png")
+# Legenda apenas para KDE
+nome_figura = os.path.join(saida, "simple_flesch.png")
 plt.savefig(nome_figura, dpi=300, bbox_inches='tight')
 plt.close()
 print(f"Gráfico combinado de todos os arquivos salvo em {nome_figura}")
