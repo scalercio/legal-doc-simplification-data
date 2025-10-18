@@ -349,6 +349,97 @@ def filter_errors(df: pd.DataFrame) -> pd.DataFrame:
     """
     mask = ~df["paraphrase"].str.startswith("Error: Could not paraphrase -", na=False)
     return df[mask].reset_index(drop=True)
+
+import math
+from easse.sari import get_corpus_sari_operation_scores
+from typing import Set, Tuple
+
+
+def tokenize(text: str) -> list:
+    """Tokeniza o texto em palavras (incluindo pontuação)."""
+    return text.strip().split()
+
+
+def count_words(text: str) -> int:
+    """Conta o número de palavras (incluindo pontuação)."""
+    return len(tokenize(text)) if text.strip() else 0
+
+
+def calculate_d_sari(input_text: str, output_text: str, reference_text: str, verbose: bool = False) -> float:
+    """
+    Calcula a métrica D-SARI (Document-level SARI).
+    
+    Args:
+        input_text: Texto original (Input)
+        output_text: Texto simplificado (Output)
+        reference_text: Texto de referência (Reference)
+        verbose: Se True, imprime os componentes intermediários
+    
+    Returns:
+        Score D-SARI (0 a 1)
+    """
+    # Contagem de palavras e sentenças
+    I = count_words(input_text)
+    O = count_words(output_text)
+    R = count_words(reference_text)
+    OS = len(legal_sentence_split(output_text))
+    RS = len(legal_sentence_split(reference_text))
+    
+    if I == 0 or O == 0 or R == 0:
+        raise ValueError("Todos os textos devem conter pelo menos uma palavra.")
+    
+    # LP1 - Length Penalty 1
+    if O >= R:
+        LP1 = 1.0
+    else:
+        LP1 = math.exp((O - R) / O)
+    
+    # LP2 - Length Penalty 2
+    if O <= R:
+        LP2 = 1.0
+    else:
+        LP2 = math.exp((R - O) / max(I - R, 1))
+    
+    # SLP - Sentence Length Penalty
+    SLP = math.exp(-abs(RS - OS) / max(RS, OS))
+    
+    # Componentes SARI
+    F_add, F_keep, F_del = get_corpus_sari_operation_scores(
+        [input_text], [output_text], [[reference_text]]
+    )
+    
+    # Componentes D-SARI
+    D_keep = F_keep * LP2 * SLP
+    D_add = F_add * LP1
+    D_del = F_del * LP2
+    
+    # D-SARI final
+    D_SARI = (D_keep + D_del + D_add) / 3
+    
+    if verbose:
+        print(f"=== Contagens ===")
+        print(f"I (palavras input): {I}")
+        print(f"O (palavras output): {O}")
+        print(f"R (palavras reference): {R}")
+        print(f"OS (sentenças output): {OS}")
+        print(f"RS (sentenças reference): {RS}")
+        print(f"\n=== Penalidades ===")
+        print(f"LP1: {LP1:.4f}")
+        print(f"LP2: {LP2:.4f}")
+        print(f"SLP: {SLP:.4f}")
+        print(f"\n=== Componentes SARI ===")
+        print(f"F_keep: {F_keep:.4f}")
+        print(f"F_add: {F_add:.4f}")
+        print(f"F_del: {F_del:.4f}")
+        print(f"\n=== Componentes D-SARI ===")
+        print(f"D_keep: {D_keep:.4f}")
+        print(f"D_add: {D_add:.4f}")
+        print(f"D_del: {D_del:.4f}")
+        print(f"\n=== Score Final ===")
+        print(f"D-SARI: {D_SARI:.4f}")
+    
+    return D_SARI, D_add, D_keep , D_del
+
 # ------------------------------
 # Example usage
 # ------------------------------
