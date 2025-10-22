@@ -12,8 +12,9 @@ from sentence_transformers import SentenceTransformer, util
 # 1. Carregar test set
 # ======================
 print("📂 Carregando dataset de teste...")
-test_df = pd.read_parquet("challenge_good.parquet")
+test_df = pd.read_parquet("splits_output/test_random.parquet")
 generate = False
+file_name = "test_set_metrics_qwen25base"
 
 if generate:
     
@@ -65,7 +66,7 @@ if generate:
     # ======================
     # 4. Geração batched
     # ======================
-    BATCH_SIZE = 8  # ajuste conforme a VRAM disponível
+    BATCH_SIZE = 4  # ajuste conforme a VRAM disponível
     MAX_NEW_TOKENS = 4096
 
     predictions = []
@@ -105,7 +106,7 @@ if generate:
     test_df["qwen2.5_output"] = predictions
     print("\n✅ Geração concluída!\n")
 else:
-    test_df = pd.read_csv("challenge_good_qwen2_5_results_batched.csv")
+    test_df = pd.read_csv(file_name + ".csv",)
     
 # ======================
 # 5. Avaliação
@@ -121,7 +122,7 @@ sari_result = corpus_sari(
     test_df["qwen2.5_output"].tolist(),
     [test_df["paraphrase"].tolist()]
 )
-print("Qwen2.5 good:")
+print("Qwen2.5 test:")
 print(sari_result)
 
 # To get individual components, you can use:
@@ -184,14 +185,16 @@ print(f"  ✓ Similaridade Semântica: {semantic_similarity:.4f}")
 # ======================
 metrics = {
     "d_sari": d_sari,
+    "d_add": add_scores,
+    "d_keep":keep_scores,
+    "d_del":del_scores,
     "semantic_similarity": semantic_similarity,
 }
 
-#with open("test_metrics_batched.json", "w") as f:
-#    json.dump(metrics, f, indent=4, ensure_ascii=False)
-#
-#test_df.to_csv("challenge_good_qwen2_5_results_batched.csv", index=False)
+with open(file_name + ".json", "w") as f:
+    json.dump(metrics, f, indent=4, ensure_ascii=False)
+
+test_df.to_csv(file_name + ".csv", index=False)
 
 print("\n✅ Métricas finais:")
 print(json.dumps(metrics, indent=4, ensure_ascii=False))
-print("\n📁 Resultados salvos em 'challenge_good_qwen2_5_results_batched.csv'")

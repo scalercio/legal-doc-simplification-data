@@ -364,6 +364,23 @@ def count_words(text: str) -> int:
     """Conta o número de palavras (incluindo pontuação)."""
     return len(tokenize(text)) if text.strip() else 0
 
+def contar_palavras(texto):
+    if not isinstance(texto, str) or not texto.strip():
+        return 0
+    # Substitui todos os tipos de traços por hífen comum
+    texto = texto.replace('–', '-').replace('—', '-').replace('−', '-').replace('‑', '-')
+    texto_limpo = re.sub(r"[^A-Za-zÀ-ÿ-]+", " ", texto)
+    # Remove hífens isolados
+    palavras = [p for p in texto_limpo.split(" ") if p and p != "-"]
+    return len(palavras)
+
+
+def contar_caracteres(texto):
+    if not isinstance(texto, str):
+        return 0
+    # Remove tudo que não for letra (incluindo letras acentuadas)
+    texto_limpo = re.sub(r'[^A-Za-zÀ-ÿ]', '', texto)
+    return len(texto_limpo)
 
 def calculate_d_sari(input_text: str, output_text: str, reference_text: str, verbose: bool = False) -> float:
     """
