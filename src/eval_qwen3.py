@@ -107,10 +107,11 @@ def generate_simplification_batch(model, tokenizer, texts, system_msg, max_new_t
         outputs = model.generate(
             **inputs,
             max_new_tokens=1024,
-            do_sample=True,
-            temperature=0.3,
-            top_p=0.85,
-            top_k=40,
+            do_sample=False,
+            num_beams=1,
+            #temperature=0.3,
+            #top_p=0.85,
+            #top_k=40,
             # contrastive search leve:
             #penalty_alpha=0.6,        # (se disponível na sua versão HF)
             # anti-repetição:
@@ -216,7 +217,7 @@ def process_parquet(input_file, output_file, model_path="./qwen3-1.7b-lora-final
     simplifications = []
     
     print("\n🔄 Gerando simplificações...")
-    
+    last_checkpoint = -1
     # Processa em batches
     for i in tqdm(range(0, len(df), batch_size)):
         try:
@@ -260,6 +261,17 @@ def process_parquet(input_file, output_file, model_path="./qwen3-1.7b-lora-final
             if (i // batch_size + 1) % 50 == 0:
                 torch.cuda.empty_cache()
                 
+            # Salvar progresso a cada 10%
+            progress = (i + batch_size) / len(df)
+            current_checkpoint = int(progress * 10)  # 0–10
+
+            if current_checkpoint > last_checkpoint:
+                test_df_partial = df.iloc[:len(simplifications)].copy()
+                test_df_partial["qwen3"] = simplifications
+                test_df_partial.to_csv(f"gov_bs1_partial_{current_checkpoint*10}_base.csv", index=False)
+                print(f"💾 Progresso salvo em {current_checkpoint*10}% ({len(simplifications)} registros)")
+                last_checkpoint = current_checkpoint
+                
         except Exception as e:
             print(f"\n⚠️ Erro no batch {i}-{batch_end}: {e}")
             # Em caso de erro, adiciona vazios para o batch inteiro
@@ -294,7 +306,7 @@ if __name__ == "__main__":
                        help="Caminho do modelo treinado")
     parser.add_argument("--use_base", action="store_true", 
                        help="Usar modelo base ao invés do treinado")
-    parser.add_argument("--batch_size", type=int, default=16, 
+    parser.add_argument("--batch_size", type=int, default=1, 
                        help="Tamanho do batch para inferência")
     parser.add_argument("--max_tokens", type=int, default=2048, 
                        help="Máximo de tokens a gerar")

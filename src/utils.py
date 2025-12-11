@@ -403,6 +403,7 @@ def calculate_d_sari(input_text: str, output_text: str, reference_text: str, ver
     RS = len(legal_sentence_split(reference_text))
     
     if I == 0 or O == 0 or R == 0:
+        #return 0,0,0,0
         raise ValueError("Todos os textos devem conter pelo menos uma palavra.")
     
     # LP1 - Length Penalty 1
