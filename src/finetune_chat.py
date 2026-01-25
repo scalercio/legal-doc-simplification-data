@@ -19,7 +19,12 @@ import math
 # ======================
 # 1. Configurar W&B
 # ======================
-wandb.init(project="qwen-finetune", name="qwen2.5-7b-lora-trainer")
+wandb.init(
+    project="qwen-finetune",
+    name="qwen2.5-7b-lora-trainer",
+    id="twdmr4vx",
+    resume="must"
+)
 
 # ======================
 # 2. Carregar datasets
@@ -572,7 +577,19 @@ trainer.evaluate = types.MethodType(custom_evaluate, trainer)
 ## 11. Iniciar treino
 ## ======================
 print("🚀 Iniciando treino...")
-trainer.train()
+#trainer.train()
+
+# Especifique o checkpoint exato
+checkpoint_path = "./qwen-finetuned-chat2/checkpoint-32000"
+
+# Verifica se o checkpoint existe
+if os.path.exists(checkpoint_path):
+    print(f"📂 Retomando do checkpoint: {checkpoint_path}")
+    trainer.train(resume_from_checkpoint=checkpoint_path)
+else:
+    print(f"⚠️ Checkpoint não encontrado em {checkpoint_path}")
+    #print("Iniciando treino do zero...")
+    #trainer.train()
 
 ## ======================
 ## 10. Salvar modelo final
