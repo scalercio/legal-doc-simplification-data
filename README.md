@@ -79,9 +79,9 @@ The data used in this repository should be placed under:
 ```text
 data/legal-simplification-pt/
 ├── random_split/
-│   ├── train.parquet
-│   ├── validation.parquet
-│   └── test.parquet
+│   ├── train_random.parquet
+│   ├── val_random.parquet
+│   └── test_random.parquet
 └── by_source/
     ├── acordaos_tcu.parquet
     ├── stf_decisions.parquet
